@@ -1,17 +1,27 @@
 <script setup lang="ts">
 import InputError from '@/components/InputError.vue';
-import {Button,buttonVariants} from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { Switch } from '@/components/ui/switch';
-import { Head, useForm,Link } from '@inertiajs/vue3';
-import { type BreadcrumbItem, type Task } from '@/types';
-import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
+import AppLayout from '@/layouts/AppLayout.vue';
 import { cn } from '@/lib/utils';
+import { BreadcrumbItem, Task } from '@/types';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import { DateFormatter, fromDate, getLocalTimeZone } from '@internationalized/date';
 import { CalendarIcon } from 'lucide-vue-next';
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Tasks', href: '/tasks' },
+    { title: 'Edit', href: '' },
+];
+
+const df = new DateFormatter('en-US', {
+    dateStyle: 'long',
+});
 
 interface Props {
     task: Task;
@@ -25,38 +35,39 @@ const form = useForm({
     name: task.name,
     is_completed: task.is_completed,
     due_date: task.due_date ? fromDate(new Date(task.due_date)) : null,
+    media: '',
 });
 
-const df = new DateFormatter('en-US', {
-    dateStyle: 'long',
-});
+const fileSelected = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
 
-const submitForm = () => {
-    form.transform((data) => ({
-        ...data,
-        due_date: data.due_date ? data.due_date.toDate(getLocalTimeZone()) : null,
-    })).put(route('tasks.update', task.id), {
-        preserveScroll: true,
-    });
+    if (!file) {
+        return;
+    }
+
+    form.media = file;
 };
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Tasks', href: '/tasks' },
-    { title: 'Edit', href: '' },
-];
+const submitForm = () => {
+    router.post(
+        route('tasks.update', task.id),
+        {
+            ...form.data(),
+            due_date: form.data().due_date ? form.data().due_date.toDate(getLocalTimeZone()) : null,
+            _method: 'PUT',
+        },
+        {
+            forceFormData: true,
+            preserveScroll: true,
+        },
+    );
+};
 </script>
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbs">
         <Head title="Edit Task" />
-
-        <div class="mt-4">
-            <Link
-                :class="buttonVariants({variant: 'outline'})" href="/tasks"> Back
-            </Link>
-        </div>
-
         <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
             <form class="space-y-6" @submit.prevent="submitForm">
                 <div class="grid gap-2">
@@ -65,14 +76,6 @@ const breadcrumbs: BreadcrumbItem[] = [
                     <Input id="name" v-model="form.name" class="mt-1 block w-full" />
 
                     <InputError :message="form.errors.name" />
-                </div>
-
-                <div class="grid gap-2">
-                    <Label htmlFor="is_completed">Completed?</Label>
-
-                    <Switch id="is_completed" v-model="form.is_completed" class="mt-1" />
-
-                    <InputError :message="form.errors.is_completed" />
                 </div>
 
                 <div class="grid gap-2">
@@ -94,6 +97,26 @@ const breadcrumbs: BreadcrumbItem[] = [
                     </Popover>
 
                     <InputError :message="form.errors.due_date" />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label htmlFor="is_completed">Completed?</Label>
+
+                    <Switch id="is_completed" v-model="form.is_completed" class="mt-1" />
+
+                    <InputError :message="form.errors.is_completed" />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label htmlFor="name">Media</Label>
+
+                    <Input type="file" id="name" v-on:change="fileSelected($event)" class="mt-1 block w-full" />
+
+                    <progress v-if="form.progress" :value="form.progress.percentage" max="100">{form.progress.percentage}%</progress>
+
+                    <InputError :message="form.errors.media" />
+
+                    <img v-if="task.mediaFile" :src="task.mediaFile.original_url" class="mx-auto mt-2 h-32 w-32 rounded-lg" />
                 </div>
 
                 <div class="flex items-center gap-4">

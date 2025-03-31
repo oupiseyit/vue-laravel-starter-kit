@@ -1,0 +1,115 @@
+
+<script setup lang="ts">
+import InputError from '@/components/InputError.vue';
+import {Button,buttonVariants} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import AppLayout from '@/layouts/AppLayout.vue';
+import {Head, useForm,Link} from '@inertiajs/vue3';
+import { type BreadcrumbItem } from '@/types';
+import { cn } from '@/lib/utils';
+import { DateFormatter, getLocalTimeZone } from '@internationalized/date';
+import { CalendarIcon } from 'lucide-vue-next';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+const form = useForm({
+    name: '',
+    due_date: '' as string |null,
+    media:  '' as string | File,
+});
+
+const fileSelected = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+
+    if (!file) {
+        return;
+    }
+
+    form.media = file;
+};
+
+const df = new DateFormatter('en-US', {
+    dateStyle: 'long',
+});
+
+const submitForm = () => {
+    form.transform((data) => ({
+        ...data,
+        due_date: data.due_date ? new Date(data.due_date).toISOString() : null,
+    })).post(route('tasks.store'), {
+        forceFormData: true,
+        preserveScroll: true,
+    });
+};
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Tasks', href: '/tasks' },
+    { title: 'Create', href: '/tasks' },
+];
+</script>
+
+<template>
+    <AppLayout :breadcrumbs="breadcrumbs">
+    <Head title="Create Task"/>
+
+        <div class="mt-4">
+            <Link
+                :class="buttonVariants({variant: 'outline'})" href="/tasks"> Back
+            </Link>
+        </div>
+
+    <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
+        <form class="space-y-6" @submit.prevent="submitForm">
+        <div class="grid gap-2">
+            <Label htmlFor="name">Task Name *</Label>
+            <Input
+                id="name"
+                v-model="form.name"
+                class="mt-1 block w-full border border-gray-300"
+                :class="{'border-red-500': form.errors.name}"
+                required
+            />
+
+            <InputError :message="form.errors.name"/>
+        </div>
+
+        <div class="grid gap-2">
+            <Label htmlFor="name">Due Date</Label>
+
+            <Popover>
+                <PopoverTrigger as-child>
+                    <Button
+                        variant="outline"
+                        :class="cn('w-[280px] justify-start text-left font-normal', !form.due_date && 'text-muted-foreground')"
+                    >
+                        <CalendarIcon class="mr-2 h-4 w-4" />
+                        {{ form.due_date ? df.format(form.due_date.toDate(getLocalTimeZone())) : 'Pick a date' }}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent class="w-auto p-0">
+                    <Calendar v-model="form.due_date" initial-focus />
+                </PopoverContent>
+            </Popover>
+
+            <InputError :message="form.errors.due_date" />
+        </div>
+
+        <div class="grid gap-2">
+            <Label htmlFor="name">Media</Label>
+
+            <Input type="file" id="name" v-on:change="fileSelected($event)" class="mt-1 block w-full" />
+
+            <progress v-if="form.progress" :value="form.progress.percentage" max="100">{form.progress.percentage}%</progress>
+
+            <InputError :message="form.errors.media" />
+        </div>
+
+        <div class="flex items-center gap-4">
+            <Button :disabled="form.processing" variant="default">Create Task</Button>
+        </div>
+        </form>
+    </div>
+    </AppLayout>
+</template>
